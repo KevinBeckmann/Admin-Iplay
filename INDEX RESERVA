@@ -4,7 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <title>iPlay Store - Painel do Administrador</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+    <meta name="theme-color" content="#6eea70">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="iPlay Admin">
+
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -54,8 +63,8 @@
         window.carregarPedidos = carregarPedidos;
         window.marcarAtendido = marcarAtendido;
     </script>
+
     <style>
-        /* TODO: Cole aqui TODO o CSS do seu adm.html original (igual ao que você enviou) */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
         :root {
@@ -69,7 +78,7 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        
+
         body {
             font-family: 'Inter', sans-serif;
             background: #08090b;
@@ -94,8 +103,8 @@
             box-shadow: 0 0 40px rgba(0,0,0,0.5);
         }
         .login-box h2 { margin-bottom: 20px; color: var(--accent); }
-        .login-box input { 
-            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; 
+        .login-box input {
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333;
             background: #0b0c10; color: #fff; margin-bottom: 15px; font-size: 1rem;
             text-align: center;
         }
@@ -116,17 +125,16 @@
             flex-wrap: wrap;
         }
         .brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 250px; }
-        .logo {
-            width: 42px; height: 42px; flex-shrink: 0;
-        }
+        .logo { width: 42px; height: 42px; flex-shrink: 0; }
         .title { font-weight: 700; font-size: 1.1rem; line-height: 1.2; }
         .hint { color: var(--text-dim); font-size: 0.8rem; margin-top: 2px; }
 
         .container {
             max-width: 1200px; margin: 20px auto; padding: 0 20px; display: grid; gap: 20px;
             grid-template-columns: 1fr 350px;
+            align-items: start;
         }
-        
+
         .card {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -138,7 +146,6 @@
             font-size: 1.05rem; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
             color: #fff; font-weight: 700;
         }
-        .muted { color: var(--text-dim); font-size: 0.92rem; }
 
         .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
         button, .btn {
@@ -158,7 +165,7 @@
             padding: 12px; font-size: 1rem; width: 100%;
         }
         .two-cols { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
-        
+
         /* PRODUTO ITEM */
         .product-item {
             background: var(--bg-elev);
@@ -173,19 +180,17 @@
         }
         .head-title { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
         .head-actions { display: flex; gap: 6px; }
-        
+
         .badge {
             background: rgba(110,234,112,0.15);
             border: 1px solid rgba(110,234,112,0.3);
             color: var(--accent); font-weight: 700; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem;
         }
-        
-        .product-grid {
-            display: grid; gap: 15px; grid-template-columns: 1.5fr 1fr; align-items: start;
-        }
-        .img-preview { 
-            width: 100%; max-width: 200px; height: auto; 
-            border-radius: 8px; border: 1px solid #333; background: #fff; padding: 4px; 
+
+        .product-grid { display: grid; gap: 15px; grid-template-columns: 1.5fr 1fr; align-items: start; }
+        .img-preview {
+            width: 100%; max-width: 200px; height: auto;
+            border-radius: 8px; border: 1px solid #333; background: #fff; padding: 4px;
             margin-top: 10px;
         }
 
@@ -193,33 +198,58 @@
         .upload-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
         .upload-actions .btn { padding: 8px 12px; font-size: 0.8rem; }
 
-        .aside .card { position: sticky; top: 94px; }
-        .small { font-size: 0.8rem; color: #888; margin-top: 5px; line-height: 1.4; }
+        /* PROMOÇÕES */
+        .promo-item {
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: grid;
+            gap: 10px;
+        }
+        .promo-preview {
+            max-width: 100%;
+            border-radius: 8px;
+            border: 1px solid #333;
+            padding: 4px;
+            background: #fff;
+        }
 
+        /* FIX: NÃO DEIXAR CADA CARD "STICKY" (isso causava sobreposição) */
+        .aside .card { position: static; }
+
+        /* Se quiser a coluna direita "fixa" no desktop, sticky no ASIDE inteiro (não nos cards) */
+        @media (min-width: 901px) {
+            .aside {
+                position: sticky;
+                top: 94px;
+                align-self: start;
+            }
+        }
+
+        .small { font-size: 0.8rem; color: #888; margin-top: 5px; line-height: 1.4; }
         .footer-note { text-align: center; color: #555; font-size: 0.8rem; padding: 20px 0 40px; }
 
         /* --- RESPONSIVIDADE MOBILE --- */
         @media (max-width: 900px) {
             .container { grid-template-columns: 1fr; padding: 0 15px; margin-top: 15px; }
             .product-grid { grid-template-columns: 1fr; }
-            .aside .card { position: static; margin-top: 20px; }
-            
-            /* Header mais compacto */
+
             .header-container { padding: 10px 15px; flex-direction: column; align-items: stretch; gap: 12px; }
             .header-container .btn { width: 100%; }
             .title { font-size: 1rem; }
-            .hint { display: none; } /* Esconde texto de ajuda no mobile pra economizar espaço */
+            .hint { display: none; }
 
-            /* Botões mais fáceis de tocar */
             .toolbar button, .toolbar label.btn { flex: 1; padding: 14px; text-align: center; }
             .head-actions button { padding: 8px 12px; }
-            
+
             .two-cols { grid-template-columns: 1fr; }
             .upload-actions .btn { width: 100%; }
             .img-preview { max-width: 100%; height: 200px; object-fit: contain; background: #222; }
         }
 
-        /* --- NOVO: SEÇÃO DE PEDIDOS --- */
+        /* PEDIDOS */
         .pedido-item {
             background: var(--bg-elev);
             border: 1px solid var(--border);
@@ -228,17 +258,39 @@
             margin-bottom: 14px;
             display: grid; gap: 12px;
         }
-        .pedido-head {
-            display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-        }
+        .pedido-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
         .pedido-info { font-size: 0.9rem; color: var(--text-dim); }
-        .pedido-status { 
+        .pedido-status {
             padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;
-            background: #ff5555; color: #000; 
+            background: #ff5555; color: #000;
         }
         .pedido-status.atendido { background: var(--accent); }
+
+        /* Install prompt (opcional) */
+        #installPrompt {
+            display:none;
+            position:fixed;
+            bottom:20px;
+            left:50%;
+            transform:translateX(-50%);
+            z-index:11000;
+            background:var(--bg-card);
+            border:1px solid var(--border);
+            padding:12px;
+            border-radius:14px;
+            width:min(420px, calc(100% - 24px));
+            box-shadow:0 10px 24px rgba(0,0,0,0.4);
+        }
+        #installPrompt .row {
+            display:flex;
+            gap:10px;
+            justify-content:flex-end;
+            margin-top:10px;
+        }
+        #installPrompt button { padding:10px 12px; }
     </style>
 </head>
+
 <body>
 
   <!-- TELA DE LOGIN -->
@@ -281,7 +333,6 @@
       </section>
 
       <aside class="aside">
-        <!-- NOVA SEÇÃO: VER PEDIDOS -->
         <section class="card">
           <h2><i class="fa-solid fa-shopping-cart"></i> Ver Pedidos</h2>
           <div class="toolbar">
@@ -290,7 +341,18 @@
           <div id="pedidosList"></div>
         </section>
 
-        <section class="card">
+        <section class="card" style="margin-top:14px;">
+          <h2><i class="fa-solid fa-images"></i> Promoções</h2>
+          <div class="toolbar">
+            <button id="btnAddPromo"><i class="fa-solid fa-plus"></i> Adicionar</button>
+            <button id="btnSavePromo"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+            <button id="btnResetPromo" class="secondary"><i class="fa-solid fa-rotate-left"></i> Resetar</button>
+          </div>
+          <div id="promocoesList"></div>
+          <div class="small" style="text-align:center;">Salva em <b>localStorage</b> na chave <code>iplay.promocoes</code></div>
+        </section>
+
+        <section class="card" style="margin-top:14px;">
           <h2><i class="fa-solid fa-credit-card"></i> Pagamento</h2>
           <div class="field">
             <label for="pix">PIX (Copia e Cola)</label>
@@ -326,7 +388,7 @@
               <input id="fileImport" type="file" accept="application/json" style="display:none;">
             </label>
           </div>
-          <div class="small" style="text-align: center;">Salva produtos e configs em arquivo JSON.</div>
+          <div class="small" style="text-align: center;">Salva produtos, promoções e configs em arquivo JSON.</div>
         </section>
       </aside>
     </main>
@@ -334,14 +396,56 @@
     <div class="footer-note">Painel Admin Mobile • iPlay Store</div>
   </div>
 
+  <!-- Install prompt UI (opcional) -->
+  <div id="installPrompt">
+    <div style="color:#fff;font-weight:700">Instalar o app no seu dispositivo?</div>
+    <div class="small">Funciona offline (cache) e abre como aplicativo.</div>
+    <div class="row">
+      <button id="btnCancelInstall" class="secondary" type="button">Depois</button>
+      <button id="btnInstall" type="button">Instalar</button>
+    </div>
+  </div>
+
+  <script>
+    // --- PWA: Service Worker registration compatível com /Admin-Iplay/ ---
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        // Seu manifest usa scope "/Admin-Iplay/", então registramos o SW nesse mesmo escopo.
+        navigator.serviceWorker.register('/Admin-Iplay/sw.js')
+          .then(() => console.log('Service Worker registrado'))
+          .catch(err => console.warn('Erro registrando SW', err));
+      });
+    }
+
+    // --- PWA: Install prompt (opcional, melhora UX no Android/Chrome) ---
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('installPrompt').style.display = 'block';
+    });
+
+    document.getElementById('btnInstall').addEventListener('click', async () => {
+      document.getElementById('installPrompt').style.display = 'none';
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+    });
+
+    document.getElementById('btnCancelInstall').addEventListener('click', () => {
+      document.getElementById('installPrompt').style.display = 'none';
+    });
+  </script>
+
   <script>
     // --- LÓGICA DE LOGIN ---
     const SENHA_CORRETA = "IPLAY6202";
-    
+
     function checkLogin() {
       const input = document.getElementById('passwordInput');
       const error = document.getElementById('loginError');
-      
+
       if (input.value === SENHA_CORRETA) {
         sessionStorage.setItem('iplay_auth', 'true');
         showAdmin();
@@ -357,18 +461,18 @@
       document.getElementById('mainContent').style.display = 'block';
     }
 
-    // Verifica se já logou nesta sessão
-    if (sessionStorage.getItem('iplay_auth') === 'true') {
-      showAdmin();
-    }
+    if (sessionStorage.getItem('iplay_auth') === 'true') showAdmin();
 
-    // Permite dar Enter no campo de senha
     document.getElementById('passwordInput').addEventListener('keypress', function (e) {
       if (e.key === 'Enter') checkLogin();
     });
 
     // --- SISTEMA DO ADMIN ---
-    const LS_KEYS = { produtos: 'iplay.produtos', pagamento: 'iplay.pagamento' };
+    const LS_KEYS = {
+      produtos: 'iplay.produtos',
+      pagamento: 'iplay.pagamento',
+      promocoes: 'iplay.promocoes'
+    };
 
     const defaultProdutos = [
       { id: 1, nome: "iPhone 15 Pro Max", cat: "aparelhos", preco: 8299, desc: "1TB Titanium Natural", img: "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3", featured: false },
@@ -388,19 +492,38 @@
       whatsapp: ""
     };
 
+    const defaultPromocoes = [
+      "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=500&q=80",
+      "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=500&q=80"
+    ];
+
     let produtos = [];
     let pagamento = {};
+    let promocoes = [];
 
     function loadState() {
       try {
         const p = JSON.parse(localStorage.getItem(LS_KEYS.produtos) || 'null');
         const pay = JSON.parse(localStorage.getItem(LS_KEYS.pagamento) || 'null');
+        const promo = JSON.parse(localStorage.getItem(LS_KEYS.promocoes) || 'null');
+
         produtos = Array.isArray(p) && p.length ? p : defaultProdutos.slice();
         pagamento = pay && typeof pay === 'object' ? { ...defaultPagamento, ...pay } : { ...defaultPagamento };
+        promocoes = Array.isArray(promo) && promo.length ? promo : defaultPromocoes.slice();
       } catch {
         produtos = defaultProdutos.slice();
         pagamento = { ...defaultPagamento };
+        promocoes = defaultPromocoes.slice();
       }
+    }
+
+    function toast(msg) {
+      const t = document.createElement('div');
+      t.textContent = msg;
+      t.style.cssText = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.9); border:1px solid #6eea70; color:#fff; padding:12px 20px; border-radius:30px; z-index:10000;";
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2000);
     }
 
     function saveProdutosToLS() {
@@ -417,15 +540,20 @@
       try {
         localStorage.setItem(LS_KEYS.pagamento, JSON.stringify(pagamento));
         toast("Configurações salvas!");
-      } catch (err) { alert('Erro ao salvar config.'); }
+      } catch (err) {
+        alert('Erro ao salvar config.');
+      }
     }
 
-    function toast(msg) {
-      const t = document.createElement('div');
-      t.textContent = msg;
-      t.style.cssText = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.9); border:1px solid #6eea70; color:#fff; padding:12px 20px; border-radius:30px; z-index:10000;";
-      document.body.appendChild(t);
-      setTimeout(() => t.remove(), 2000);
+    function savePromocoesToLS() {
+      try {
+        promocoes = (promocoes || []).map(s => String(s || '').trim()).filter(Boolean);
+        localStorage.setItem(LS_KEYS.promocoes, JSON.stringify(promocoes));
+        toast("Promoções salvas!");
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao salvar promoções. Espaço cheio? Use imagens menores.');
+      }
     }
 
     function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -459,7 +587,6 @@
     }
 
     const productsListEl = document.getElementById('productsList');
-
     function newId() { return (produtos.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0) || 0) + 1; }
 
     function renderProdutosAdmin() {
@@ -532,7 +659,6 @@
           </div>
         `;
 
-        // Event Listeners
         wrap.addEventListener('input', onProductFieldChange);
         wrap.addEventListener('change', onProductFieldChange);
 
@@ -550,7 +676,6 @@
           if (idx < produtos.length - 1) { const i = produtos.splice(idx, 1)[0]; produtos.splice(idx + 1, 0, i); renderProdutosAdmin(); }
         });
 
-        // Image Handling
         const fileInput = wrap.querySelector('input[type="file"]');
         const clearBtn = wrap.querySelector('[data-action="clearImg"]');
         const urlInput = wrap.querySelector('input[data-field="img"]');
@@ -565,7 +690,9 @@
             urlInput.value = dataUrl;
             preview.src = dataUrl;
             preview.style.display = 'block';
-          } catch { alert('Erro na imagem.'); }
+          } catch {
+            alert('Erro na imagem.');
+          }
           e.target.value = '';
         });
 
@@ -578,8 +705,10 @@
 
         productsListEl.appendChild(wrap);
       });
-      
-      if(produtos.length === 0) productsListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Sem produtos. Adicione um!</div>';
+
+      if (produtos.length === 0) {
+        productsListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Sem produtos. Adicione um!</div>';
+      }
     }
 
     function onProductFieldChange(e) {
@@ -589,7 +718,7 @@
 
       let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
       if (field === 'preco') val = Number(val) || 0;
-      
+
       produtos[idx][field] = val;
 
       if (field === 'nome') e.target.closest('.product-item').querySelector('.head-title strong').textContent = val;
@@ -599,7 +728,113 @@
       }
     }
 
-    // --- NOVO: FUNÇÃO PARA RENDER PEDIDOS ---
+    // PROMOÇÕES
+    const promocoesListEl = document.getElementById('promocoesList');
+
+    function renderPromocoesAdmin() {
+      promocoesListEl.innerHTML = '';
+
+      promocoes.forEach((p, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'promo-item';
+        wrap.dataset.index = idx;
+
+        wrap.innerHTML = `
+          <div class="product-head">
+            <div class="head-title"><strong>Promoção ${idx + 1}</strong></div>
+            <div class="head-actions">
+              <button class="secondary" data-action="up"><i class="fa-solid fa-arrow-up"></i></button>
+              <button class="secondary" data-action="down"><i class="fa-solid fa-arrow-down"></i></button>
+              <button class="danger" data-action="delPromo"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>URL da Imagem (ou DataURL)</label>
+            <input data-field="url" type="url" value="${escapeAttr(p || '')}" placeholder="https://...">
+            <div class="upload-actions" style="margin-top:8px;">
+              <label class="btn secondary">
+                <i class="fa-solid fa-camera"></i> Enviar Foto
+                <input type="file" accept="image/*" data-role="promoFile" data-index="${idx}" style="display:none;">
+              </label>
+              <button class="secondary" type="button" data-action="clearPromoImg">
+                <i class="fa-solid fa-times"></i>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <img class="promo-preview" src="${escapeAttr(p || '')}" alt="promo" ${p ? '' : 'style="display:none;"'}>
+          </div>
+        `;
+
+        const urlInput = wrap.querySelector('input[data-field="url"]');
+        const preview = wrap.querySelector('.promo-preview');
+
+        urlInput.addEventListener('input', () => {
+          promocoes[idx] = urlInput.value;
+          preview.src = urlInput.value;
+          preview.style.display = urlInput.value ? 'block' : 'none';
+        });
+
+        const fileInput = wrap.querySelector('input[data-role="promoFile"]');
+        fileInput.addEventListener('change', async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+
+          try {
+            const dataUrl = await fileToDataUrlCompressed(file, 1200, 0.85);
+            promocoes[idx] = dataUrl;
+            urlInput.value = dataUrl;
+            preview.src = dataUrl;
+            preview.style.display = 'block';
+            toast('Imagem da promoção carregada!');
+          } catch (err) {
+            console.error(err);
+            alert('Erro ao processar a imagem.');
+          }
+          e.target.value = '';
+        });
+
+        wrap.querySelector('[data-action="clearPromoImg"]').addEventListener('click', () => {
+          promocoes[idx] = '';
+          urlInput.value = '';
+          preview.src = '';
+          preview.style.display = 'none';
+        });
+
+        wrap.querySelector('[data-action="delPromo"]').addEventListener('click', () => {
+          if (confirm('Deletar promoção?')) {
+            promocoes.splice(idx, 1);
+            renderPromocoesAdmin();
+          }
+        });
+
+        wrap.querySelector('[data-action="up"]').addEventListener('click', () => {
+          if (idx > 0) {
+            const it = promocoes.splice(idx, 1)[0];
+            promocoes.splice(idx - 1, 0, it);
+            renderPromocoesAdmin();
+          }
+        });
+
+        wrap.querySelector('[data-action="down"]').addEventListener('click', () => {
+          if (idx < promocoes.length - 1) {
+            const it = promocoes.splice(idx, 1)[0];
+            promocoes.splice(idx + 1, 0, it);
+            renderPromocoesAdmin();
+          }
+        });
+
+        promocoesListEl.appendChild(wrap);
+      });
+
+      if (promocoes.length === 0) {
+        promocoesListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Sem promoções. Adicione uma!</div>';
+      }
+    }
+
+    // PEDIDOS
     const pedidosListEl = document.getElementById('pedidosList');
 
     function renderPedidos(pedidos) {
@@ -617,7 +852,7 @@
           <div class="pedido-head">
             <div>
               <strong>${escapeHtml(p.nome || 'Cliente')}</strong>
-              <div class="pedido-info">${new Date(p.timestamp?.seconds * 1000 || p.timestamp).toLocaleString('pt-BR')}</div>
+              <div class="pedido-info">${new Date(p.timestamp?.seconds * 1000 || p.timestamp || Date.now()).toLocaleString('pt-BR')}</div>
             </div>
             <div class="pedido-status ${status}">${status.toUpperCase()}</div>
           </div>
@@ -641,22 +876,14 @@
       });
     }
 
-    // UI Buttons
+    // UI Buttons - Produtos
     document.getElementById('btnAdd').addEventListener('click', () => {
       produtos.push({ id: newId(), nome: 'Novo Item', cat: 'aparelhos', preco: 0, desc: '', img: '', featured: false });
       renderProdutosAdmin();
-      // Scroll to bottom
       setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 100);
     });
 
     document.getElementById('btnSave').addEventListener('click', saveProdutosToLS);
-    document.getElementById('btnSavePay').addEventListener('click', () => {
-      pagamento.pix = document.getElementById('pix').value;
-      pagamento.credito = document.getElementById('credito').value;
-      pagamento.debito = document.getElementById('debito').value;
-      pagamento.whatsapp = document.getElementById('whatsapp').value.replace(/\D/g,'');
-      savePagamentoToLS();
-    });
 
     document.getElementById('btnReset').addEventListener('click', () => {
       if(confirm('Restaurar produtos originais? Você perderá suas alterações.')) {
@@ -666,17 +893,44 @@
       }
     });
 
-    // Novo botão para carregar pedidos
+    // UI Buttons - Pedidos
     document.getElementById('btnLoadPedidos').addEventListener('click', async () => {
       const pedidos = await carregarPedidos();
       renderPedidos(pedidos);
     });
 
+    // UI Buttons - Pagamento
+    document.getElementById('btnSavePay').addEventListener('click', () => {
+      pagamento.pix = document.getElementById('pix').value;
+      pagamento.credito = document.getElementById('credito').value;
+      pagamento.debito = document.getElementById('debito').value;
+      pagamento.whatsapp = document.getElementById('whatsapp').value.replace(/\D/g,'');
+      savePagamentoToLS();
+    });
+
+    // UI Buttons - Promoções
+    document.getElementById('btnAddPromo').addEventListener('click', () => {
+      promocoes.push('');
+      renderPromocoesAdmin();
+      setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 100);
+    });
+
+    document.getElementById('btnSavePromo').addEventListener('click', savePromocoesToLS);
+
+    document.getElementById('btnResetPromo').addEventListener('click', () => {
+      if (confirm('Restaurar promoções padrão? Você perderá suas alterações.')) {
+        promocoes = defaultPromocoes.slice();
+        renderPromocoesAdmin();
+        savePromocoesToLS();
+      }
+    });
+
     // Backup
     document.getElementById('btnExport').addEventListener('click', () => {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({produtos, pagamento}));
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ produtos, pagamento, promocoes }));
       const a = document.createElement('a');
-      a.href = dataStr; a.download = "backup_loja.json";
+      a.href = dataStr;
+      a.download = "backup_loja.json";
       a.click();
     });
 
@@ -686,30 +940,39 @@
       try {
         const txt = await file.text();
         const json = JSON.parse(txt);
-        if(json.produtos) produtos = json.produtos;
-        if(json.pagamento) {
-          pagamento = { ...defaultPagamento, ...json.pagamento };
-          document.getElementById('pix').value = pagamento.pix || '';
-          document.getElementById('credito').value = pagamento.credito || '';
-          document.getElementById('debito').value = pagamento.debito || '';
-          document.getElementById('whatsapp').value = pagamento.whatsapp || '';
-        }
+
+        if (json.produtos) produtos = json.produtos;
+        if (json.pagamento) pagamento = { ...defaultPagamento, ...json.pagamento };
+        if (json.promocoes) promocoes = json.promocoes;
+
         renderProdutosAdmin();
+        renderPromocoesAdmin();
+
+        document.getElementById('pix').value = pagamento.pix || '';
+        document.getElementById('credito').value = pagamento.credito || '';
+        document.getElementById('debito').value = pagamento.debito || '';
+        document.getElementById('whatsapp').value = pagamento.whatsapp || '';
+
         saveProdutosToLS();
         savePagamentoToLS();
+        savePromocoesToLS();
+
         alert('Backup restaurado com sucesso!');
-      } catch { alert('Arquivo inválido.'); }
+      } catch {
+        alert('Arquivo inválido.');
+      }
       e.target.value = '';
     });
 
-    // Init Logic
+    // Init
     loadState();
     renderProdutosAdmin();
+    renderPromocoesAdmin();
+
     document.getElementById('pix').value = pagamento.pix || '';
     document.getElementById('credito').value = pagamento.credito || '';
     document.getElementById('debito').value = pagamento.debito || '';
     document.getElementById('whatsapp').value = pagamento.whatsapp || '';
-
   </script>
 </body>
 </html>
