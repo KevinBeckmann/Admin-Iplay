@@ -76,23 +76,27 @@
 
         // --- FUNÇÕES DE PEDIDOS (BANCO DE DADOS) ---
         
-        // 1. Carregar Pedidos
+        // 1. Carregar Pedidos (CORRIGIDO: Removemos orderBy do Firestore e fazemos via JS)
         window.carregarPedidosFirebase = async function() {
             try {
-                // Tenta ordenar por data (mais recente primeiro)
-                const q = query(collection(db, "pedidos"), orderBy("timestamp", "desc"));
-                const snapshot = await getDocs(q);
-                return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            } catch (e) {
-                console.warn("Erro de ordenação (índice?), usando fallback manual...", e);
+                // Pega TODOS os documentos da coleção 'pedidos' sem filtrar
                 const snapshot = await getDocs(collection(db, "pedidos"));
+                
                 const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // Ordenação manual no Javascript
+                
+                console.log("Pedidos carregados do Firestore:", lista); // Log para debug
+
+                // Ordenação manual no Javascript (do mais novo para o mais antigo)
                 return lista.sort((a,b) => {
+                    // Tenta usar o timestamp do firebase, se não tiver, usa 0
                     const ta = a?.timestamp?.seconds || 0;
                     const tb = b?.timestamp?.seconds || 0;
                     return tb - ta;
                 });
+            } catch (e) {
+                console.error("Erro CRÍTICO ao buscar pedidos:", e);
+                alert("Erro ao buscar pedidos no banco de dados. Verifique o console.");
+                return [];
             }
         };
 
@@ -1006,7 +1010,7 @@
 
           <div style="display:flex; gap:10px;">
             ${status !== 'atendido' ? 
-                `<button class="secondary" style="flex:1; background:var(--accent); color:#000;" onclick="marcarAtendido('${escapeAttr(p.id)}')">
+                `<button class="secondary" style="flex:1; background:var(--accent); color:#000;" onclick="alternarStatus('${escapeAttr(p.id)}', '${status}')">
                     <i class="fa-solid fa-check"></i> Finalizar
                  </button>` : 
                 `<button class="secondary" style="flex:1; opacity:0.5; cursor:not-allowed;" disabled>
@@ -1014,127 +1018,12 @@
                  </button>`
             }
             
-            <button class="danger" style="width:auto; padding:0 15px;" onclick="excluirPedido('${escapeAttr(p.id)}')">
+            <button class="danger" style="width:auto; padding:0 15px;" onclick="deletarPedido('${escapeAttr(p.id)}')">
                 <i class="fa-solid fa-trash"></i>
             </button>
           </div>
         `;
 
-        pedidosListEl.appendChild(wrap);
-      });
-    }
-
-    // UI Buttons
-    document.getElementById('btnLoadPedidos').addEventListener('click', async () => {
-      const pedidos = await carregarPedidos();
-      renderPedidos(pedidos);
-    });
-
-    // --- INIT dos dados do admin (produtos/pagamento/promo) ---
-    loadState();
-    renderProdutosAdmin();
-    renderPromocoesAdmin();
-
-        // Apenas Link de Crédito (Geral) e WhatsApp
-    document.getElementById('credito').value = pagamento.credito || '';
-    document.getElementById('whatsapp').value = pagamento.whatsapp || '';
-
-    // (opcional) auto-carregar compras ao abrir
-    // document.getElementById('btnLoadPedidos').click();
-  </script>
-
-  <script>
-    // Ações UI Produtos / Promo / Backup / Pagamento (mantidas)
-    document.getElementById('btnAdd').addEventListener('click', () => {
-      produtos.push({ id: newId(), nome: 'Novo Item', cat: 'aparelhos', preco: 0, desc: '', img: '', featured: false });
-      renderProdutosAdmin();
-      setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 100);
-    });
-
-    document.getElementById('btnSave').addEventListener('click', saveProdutosToLS);
-
-    document.getElementById('btnReset').addEventListener('click', () => {
-      if(confirm('Restaurar produtos originais? Você perderá suas alterações.')) {
-        produtos = defaultProdutos.slice();
-        renderProdutosAdmin();
-        saveProdutosToLS();
-      }
-    });
-
-        document.getElementById('btnSavePay').addEventListener('click', () => {
-      // Simplificado: Salva apenas o Link Único e o WhatsApp
-      pagamento.credito = document.getElementById('credito').value;
-      pagamento.whatsapp = document.getElementById('whatsapp').value.replace(/\D/g,'');
-      
-      // Limpa os campos antigos para não ocupar espaço
-      delete pagamento.pix;
-      delete pagamento.debito;
-
-      savePagamentoToLS();
-    });
-
-    document.getElementById('btnAddPromo').addEventListener('click', () => {
-      promocoes.push('');
-      renderPromocoesAdmin();
-      setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 100);
-    });
-
-    document.getElementById('btnSavePromo').addEventListener('click', savePromocoesToLS);
-
-    document.getElementById('btnResetPromo').addEventListener('click', () => {
-      if (confirm('Restaurar promoções padrão? Você perderá suas alterações.')) {
-        promocoes = defaultPromocoes.slice();
-        renderPromocoesAdmin();
-        savePromocoesToLS();
-      }
-    });
-
-    document.getElementById('btnExport').addEventListener('click', () => {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ produtos, pagamento, promocoes }));
-      const a = document.createElement('a');
-      a.href = dataStr;
-      a.download = "backup_loja.json";
-      a.click();
-    });
-
-    document.getElementById('fileImport').addEventListener('change', async (e) => {
-      const file = e.target.files?.[0];
-      if(!file) return;
-      try {
-        const txt = await file.text();
-        const json = JSON.parse(txt);
-
-        if (json.produtos) produtos = json.produtos;
-        if (json.pagamento) pagamento = { ...defaultPagamento, ...json.pagamento };
-        if (json.promocoes) promocoes = json.promocoes;
-
-        renderProdutosAdmin();
-        renderPromocoesAdmin();
-
-        document.getElementById('credito').value = pagamento.credito || '';
-        document.getElementById('whatsapp').value = pagamento.whatsapp || '';
-          
-        saveProdutosToLS();
-        savePagamentoToLS();
-        savePromocoesToLS();
-
-        alert('Backup restaurado com sucesso!');
-      } catch {
-        alert('Arquivo inválido.');
-      }
-      e.target.value = '';
-    });
-                </div>
-
-          <div style="display:flex; gap:10px; margin-top:10px;">
-            <button class="secondary" style="flex:1;" onclick="alternarStatus('${p.id}', '${status}')">
-              ${status === 'pendente' ? '<i class="fa-solid fa-check"></i> Marcar Atendido' : '<i class="fa-solid fa-clock"></i> Marcar Pendente'}
-            </button>
-            <button class="danger" style="width:50px;" onclick="deletarPedido('${p.id}')">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>
-        `;
         pedidosListEl.appendChild(wrap);
       });
     }
@@ -1273,8 +1162,6 @@
         // Tenta carregar pedidos automaticamente ao entrar
         carregarPedidosNaTela();
     };
-
   </script>
 </body>
 </html>
-  
