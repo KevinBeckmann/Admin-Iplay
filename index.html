@@ -14,10 +14,20 @@
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
-       <!-- Firebase SDK (Com Autenticação e Firestore) -->
+    <!-- Firebase SDK (Com Autenticação e Firestore) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import {
+            getFirestore,
+            collection,
+            getDocs,
+            updateDoc,
+            deleteDoc,
+            doc,
+            setDoc,
+            writeBatch,
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
         const firebaseConfig = {
@@ -34,6 +44,72 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
+        // =============================
+        // FIRESTORE: PRODUTOS + CONFIG
+        // =============================
+        // Estrutura:
+        // - produtos (collection) -> docs com ID = String(produto.id)
+        // - config/pagamento (doc) { credito, whatsapp, updatedAt }
+        // - config/promocoes (doc) { items: [...], updatedAt }
+
+        window.salvarProdutosFirestore = async function(produtos) {
+            // "Upsert" por ID (não apaga o que não existe; apenas atualiza/cria)
+            // Para "substituir tudo", seria necessário deletar os docs que não estão mais na lista.
+            const batch = writeBatch(db);
+
+            (produtos || []).forEach((p) => {
+                const id = String(p.id ?? '');
+                if (!id) return;
+                const ref = doc(db, "produtos", id);
+
+                batch.set(ref, {
+                    id: Number(p.id) || 0,
+                    nome: p.nome || "",
+                    cat: p.cat || "aparelhos",
+                    preco: Number(p.preco) || 0,
+                    desc: p.desc || "",
+                    img: p.img || "",
+                    featured: !!p.featured,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+            });
+
+            await batch.commit();
+            return true;
+        };
+
+        window.carregarProdutosFirestore = async function() {
+            const snap = await getDocs(collection(db, "produtos"));
+            const lista = snap.docs.map(d => ({ idDoc: d.id, ...d.data() }));
+            // Ordena por id numérico se existir
+            lista.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+            return lista;
+        };
+
+        window.salvarConfigFirestore = async function(pagamento, promocoes) {
+            const pagamentoRef = doc(db, "config", "pagamento");
+            const promocoesRef = doc(db, "config", "promocoes");
+
+            await setDoc(pagamentoRef, {
+                credito: (pagamento?.credito || "").trim(),
+                whatsapp: (pagamento?.whatsapp || "").trim(),
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+
+            await setDoc(promocoesRef, {
+                items: Array.isArray(promocoes) ? promocoes.map(s => String(s || '').trim()).filter(Boolean) : [],
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+
+            return true;
+        };
+
+        window.carregarConfigFirestore = async function() {
+            const pagamentoSnap = await getDocs(collection(db, "config")); // fallback simples
+            // (A gente vai buscar os docs diretamente com doc+getDoc no código abaixo (fora do module) por compat)
+            return pagamentoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        };
+
         // --- SISTEMA DE LOGIN SEGURO ---
         window.fazerLoginFirebase = async function(email, senha) {
             try {
@@ -42,7 +118,7 @@
                 console.error("Erro no login:", error);
                 throw error; // Joga o erro para ser tratado no botão
             }
-        }
+        };
 
         window.fazerLogout = async function() {
             try {
@@ -51,7 +127,7 @@
             } catch (error) {
                 console.error("Erro ao sair:", error);
             }
-        }
+        };
 
         // Monitora o estado da autenticação (Logado ou Não)
         onAuthStateChanged(auth, (user) => {
@@ -62,10 +138,10 @@
                 // USUÁRIO LOGADO: Esconde login, mostra painel
                 if(loginScreen) loginScreen.style.display = 'none';
                 if(mainContent) mainContent.style.display = 'block';
-                
+
                 // Carrega os dados iniciais se a função existir
                 if(window.carregarTudo) window.carregarTudo();
-                
+
                 console.log("Admin logado:", user.email);
             } else {
                 // USUÁRIO DESLOGADO: Mostra login, esconde painel
@@ -75,20 +151,15 @@
         });
 
         // --- FUNÇÕES DE PEDIDOS (BANCO DE DADOS) ---
-        
-        // 1. Carregar Pedidos (CORRIGIDO: Removemos orderBy do Firestore e fazemos via JS)
+
+        // 1. Carregar Pedidos
         window.carregarPedidosFirebase = async function() {
             try {
-                // Pega TODOS os documentos da coleção 'pedidos' sem filtrar
                 const snapshot = await getDocs(collection(db, "pedidos"));
-                
                 const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                console.log("Pedidos carregados do Firestore:", lista); // Log para debug
 
                 // Ordenação manual no Javascript (do mais novo para o mais antigo)
                 return lista.sort((a,b) => {
-                    // Tenta usar o timestamp do firebase, se não tiver, usa 0
                     const ta = a?.timestamp?.seconds || 0;
                     const tb = b?.timestamp?.seconds || 0;
                     return tb - ta;
@@ -110,7 +181,7 @@
                 throw e;
             }
         };
-        
+
         // 3. Excluir Pedido
         window.excluirPedidoFirebase = async function(id) {
             try {
@@ -413,10 +484,10 @@
             <button id="btnResetPromo" class="secondary"><i class="fa-solid fa-rotate-left"></i> Resetar</button>
           </div>
           <div id="promocoesList"></div>
-          <div class="small" style="text-align:center;">Salva em <b>localStorage</b> na chave <code>iplay.promocoes</code></div>
+          <div class="small" style="text-align:center;">(Agora também salva no <b>Firestore</b> em <code>config/promocoes</code>)</div>
         </section>
 
-                <section class="card" style="margin-top:14px;">
+        <section class="card" style="margin-top:14px;">
           <h2><i class="fa-solid fa-credit-card"></i> Pagamento</h2>
           <div class="field">
             <label for="credito" style="color:var(--accent);">Link de Pagamento (Mercado Pago)</label>
@@ -435,6 +506,7 @@
           <div class="toolbar" style="margin-top:10px">
             <button id="btnSavePay" style="width:100%"><i class="fa-solid fa-floppy-disk"></i> Salvar Configurações</button>
           </div>
+          <div class="small" style="text-align:center;">(Agora também salva no <b>Firestore</b> em <code>config/pagamento</code>)</div>
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -514,47 +586,44 @@
   </script>
 
   <script>
-        // --- 1. AUTENTICAÇÃO REAL (Firebase) ---
+    // --- 1. AUTENTICAÇÃO REAL (Firebase) ---
     async function loginReal() {
-        const email = document.getElementById('emailInput').value; // Pega o email
-        const pass = document.getElementById('passInput').value;   // Pega a senha
-        const msg = document.getElementById('loginMsg');
-        
-        // Feedback visual "Carregando..."
-        if(msg) {
-            msg.style.display = 'block';
-            msg.innerText = "Entrando...";
-            msg.style.color = "#ccc";
-        }
+      const email = document.getElementById('emailInput').value; // Pega o email
+      const pass = document.getElementById('passInput').value;   // Pega a senha
+      const msg = document.getElementById('loginMsg');
 
-        try {
-            // Chama a função de login do Firebase que criamos lá em cima
-            if (window.fazerLoginFirebase) {
-                await window.fazerLoginFirebase(email, pass);
-            } else {
-                alert("Erro: Firebase não carregou. Recarregue a página.");
-            }
-            // Se der certo, o "onAuthStateChanged" lá de cima vai liberar a tela sozinho.
-        } catch (error) {
-            // Se der erro, mostra mensagem vermelha
-            if(msg) {
-                msg.style.color = "#ff4444";
-                if(error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-                    msg.innerText = "E-mail ou senha incorretos.";
-                } else if (error.code === 'auth/too-many-requests') {
-                    msg.innerText = "Muitas tentativas. Aguarde um pouco.";
-                } else {
-                    msg.innerText = "Erro ao entrar (" + error.code + ")";
-                }
-            }
-        }
+      // Feedback visual "Carregando..."
+      if(msg) {
+          msg.style.display = 'block';
+          msg.innerText = "Entrando...";
+          msg.style.color = "#ccc";
+      }
+
+      try {
+          if (window.fazerLoginFirebase) {
+              await window.fazerLoginFirebase(email, pass);
+          } else {
+              alert("Erro: Firebase não carregou. Recarregue a página.");
+          }
+      } catch (error) {
+          if(msg) {
+              msg.style.color = "#ff4444";
+              if(error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                  msg.innerText = "E-mail ou senha incorretos.";
+              } else if (error.code === 'auth/too-many-requests') {
+                  msg.innerText = "Muitas tentativas. Aguarde um pouco.";
+              } else {
+                  msg.innerText = "Erro ao entrar (" + error.code + ")";
+              }
+          }
+      }
     }
 
     // Suporte para tecla ENTER nos campos de login
     document.getElementById('passInput').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') loginReal();
+      if (e.key === 'Enter') loginReal();
     });
-      
+
     // --- SISTEMA DO ADMIN ---
     const LS_KEYS = {
       produtos: 'iplay.produtos',
@@ -573,8 +642,8 @@
       { id: 8, nome: "HomePod Mini", cat: "aparelhos", preco: 799, desc: "Smart Speaker White", img: "https://images.unsplash.com/photo-1596558450255-7c0b7be9d56a?auto=format&fit=crop&w=400&q=80", featured: false }
     ];
 
-       const defaultPagamento = {
-      credito: "", // Agora usamos apenas este campo para o Link Geral
+    const defaultPagamento = {
+      credito: "",
       whatsapp: ""
     };
 
@@ -615,7 +684,7 @@
     function saveProdutosToLS() {
       try {
         localStorage.setItem(LS_KEYS.produtos, JSON.stringify(produtos));
-        toast("Produtos salvos!");
+        toast("Produtos salvos (local)!");
       } catch (err) {
         console.error(err);
         alert('Erro ao salvar. Espaço cheio? Tente usar imagens menores.');
@@ -625,7 +694,7 @@
     function savePagamentoToLS() {
       try {
         localStorage.setItem(LS_KEYS.pagamento, JSON.stringify(pagamento));
-        toast("Configurações salvas!");
+        toast("Configurações salvas (local)!");
       } catch (err) {
         alert('Erro ao salvar config.');
       }
@@ -635,7 +704,7 @@
       try {
         promocoes = (promocoes || []).map(s => String(s || '').trim()).filter(Boolean);
         localStorage.setItem(LS_KEYS.promocoes, JSON.stringify(promocoes));
-        toast("Promoções salvas!");
+        toast("Promoções salvas (local)!");
       } catch (err) {
         console.error(err);
         alert('Erro ao salvar promoções. Espaço cheio? Use imagens menores.');
@@ -928,15 +997,9 @@
       return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    function fmtDate(ts){
-      const ms = ts?.seconds ? ts.seconds * 1000 : (typeof ts === 'number' ? ts : (ts ? Date.parse(ts) : 0));
-      if (!ms) return '';
-      return new Date(ms).toLocaleString('pt-BR');
-    }
-
-       function renderPedidos(pedidos) {
+    function renderPedidos(pedidos) {
       pedidosListEl.innerHTML = '';
-      
+
       if (!pedidos || pedidos.length === 0) {
         pedidosListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Nenhuma compra encontrada.</div>';
         return;
@@ -944,23 +1007,21 @@
 
       pedidos.forEach((p) => {
         const status = (p.status || 'pendente').toLowerCase();
-        
-        // Formatação de Data Melhorada
+
         let dataFormatada = "Data desconhecida";
         if (p.timestamp) {
-            const dateObj = p.timestamp.seconds ? new Date(p.timestamp.seconds * 1000) : new Date(p.timestamp);
-            const dia = String(dateObj.getDate()).padStart(2, '0');
-            const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const ano = dateObj.getFullYear();
-            const hora = String(dateObj.getHours()).padStart(2, '0');
-            const min = String(dateObj.getMinutes()).padStart(2, '0');
-            dataFormatada = `${dia}/${mes}/${ano} às ${hora}:${min}`;
+          const dateObj = p.timestamp.seconds ? new Date(p.timestamp.seconds * 1000) : new Date(p.timestamp);
+          const dia = String(dateObj.getDate()).padStart(2, '0');
+          const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const ano = dateObj.getFullYear();
+          const hora = String(dateObj.getHours()).padStart(2, '0');
+          const min = String(dateObj.getMinutes()).padStart(2, '0');
+          dataFormatada = `${dia}/${mes}/${ano} às ${hora}:${min}`;
         }
 
         const wrap = document.createElement('div');
         wrap.className = 'pedido-item';
-        
-        // Estilo condicional para borda
+
         const bordaCor = status === 'atendido' ? 'var(--accent)' : '#ffb700';
         wrap.style.borderLeft = `4px solid ${bordaCor}`;
 
@@ -1003,21 +1064,21 @@
             <span style="color:#888;">Frete: ${p.frete_tipo || ''} (${fmtMoney(p.frete)})</span>
             <span style="font-size:1.1rem; font-weight:bold; color:var(--accent);">Total: ${fmtMoney(p.total)}</span>
           </div>
-          
+
           <div style="background:#222; padding:8px; border-radius:6px; font-size:0.85rem; color:#aaa; margin-bottom:15px; text-align:center;">
             Método de Pagamento: <strong style="color:#fff;">${escapeHtml(p.pagamento || '')}</strong>
           </div>
 
           <div style="display:flex; gap:10px;">
-            ${status !== 'atendido' ? 
+            ${status !== 'atendido' ?
                 `<button class="secondary" style="flex:1; background:var(--accent); color:#000;" onclick="alternarStatus('${escapeAttr(p.id)}', '${status}')">
                     <i class="fa-solid fa-check"></i> Finalizar
-                 </button>` : 
+                 </button>` :
                 `<button class="secondary" style="flex:1; opacity:0.5; cursor:not-allowed;" disabled>
                     <i class="fa-solid fa-check-double"></i> Concluído
                  </button>`
             }
-            
+
             <button class="danger" style="width:auto; padding:0 15px;" onclick="deletarPedido('${escapeAttr(p.id)}')">
                 <i class="fa-solid fa-trash"></i>
             </button>
@@ -1035,7 +1096,7 @@
         const novo = statusAtual === 'pendente' ? 'atendido' : 'pendente';
         await window.atualizarStatusFirebase(id, novo);
         toast('Status atualizado!');
-        carregarPedidosNaTela(); // Recarrega a lista
+        carregarPedidosNaTela();
       } catch(e) { console.error(e); }
     };
 
@@ -1049,64 +1110,153 @@
     };
 
     async function carregarPedidosNaTela() {
-        const btn = document.getElementById('btnLoadPedidos');
-        const icon = btn.querySelector('i');
-        icon.classList.add('fa-spin'); // Animação de carregamento
-        
-        try {
-            if(window.carregarPedidosFirebase) {
-                const lista = await window.carregarPedidosFirebase();
-                renderPedidos(lista);
-            }
-        } catch(e) {
-            console.error(e);
-            alert("Erro ao baixar pedidos.");
-        } finally {
-            icon.classList.remove('fa-spin');
+      const btn = document.getElementById('btnLoadPedidos');
+      const icon = btn.querySelector('i');
+      icon.classList.add('fa-spin');
+
+      try {
+        if(window.carregarPedidosFirebase) {
+          const lista = await window.carregarPedidosFirebase();
+          renderPedidos(lista);
         }
+      } catch(e) {
+        console.error(e);
+        alert("Erro ao baixar pedidos.");
+      } finally {
+        icon.classList.remove('fa-spin');
+      }
+    }
+
+    // =============================
+    // NOVO: CARREGAR DO FIRESTORE
+    // =============================
+    async function carregarDadosDoFirestoreParaTela() {
+      // Produtos
+      try {
+        if (window.carregarProdutosFirestore) {
+          const lista = await window.carregarProdutosFirestore();
+          if (Array.isArray(lista) && lista.length) {
+            // remove campos extras
+            produtos = lista.map(p => ({
+              id: Number(p.id) || 0,
+              nome: p.nome || '',
+              cat: p.cat || 'aparelhos',
+              preco: Number(p.preco) || 0,
+              desc: p.desc || '',
+              img: p.img || '',
+              featured: !!p.featured
+            }));
+            renderProdutosAdmin();
+          }
+        }
+      } catch (e) {
+        console.warn('Não foi possível carregar produtos do Firestore, usando localStorage.', e);
+      }
+
+      // Config (pagamento/promocoes)
+      // Como estamos no script normal (não module), vamos depender das variáveis que já existem.
+      // Para manter simples, a tela continua usando os dados atuais e você salva no Firestore ao clicar.
     }
 
     // --- INICIALIZAÇÃO E EVENTOS ---
-    
-    // Botão de carregar pedidos manualmente
     document.getElementById('btnLoadPedidos').addEventListener('click', carregarPedidosNaTela);
 
     // Botões de Produtos
     document.getElementById('btnAdd').addEventListener('click', () => {
-      produtos.unshift({ id: newId(), nome: '', cat: 'aparelhos', preco: 0, desc: '', img: '' });
+      produtos.unshift({ id: newId(), nome: '', cat: 'aparelhos', preco: 0, desc: '', img: '', featured: false });
       renderProdutosAdmin();
       window.scrollTo(0, 300);
     });
-    
-    document.getElementById('btnSave').addEventListener('click', saveProdutosToLS);
-    
-    document.getElementById('btnReset').addEventListener('click', () => {
+
+    // AGORA: salva no localStorage + Firestore
+    document.getElementById('btnSave').addEventListener('click', async () => {
+      saveProdutosToLS();
+
+      try {
+        if (!window.salvarProdutosFirestore) throw new Error('salvarProdutosFirestore indisponível');
+        await window.salvarProdutosFirestore(produtos);
+        toast("Produtos salvos no Firestore!");
+      } catch (e) {
+        console.error(e);
+        alert("Falha ao salvar produtos no Firestore. Verifique regras/permissão e console.");
+      }
+    });
+
+    document.getElementById('btnReset').addEventListener('click', async () => {
       if(confirm('Restaurar padrão?')) {
         produtos = defaultProdutos.slice();
         renderProdutosAdmin();
         saveProdutosToLS();
+
+        try {
+          if (window.salvarProdutosFirestore) {
+            await window.salvarProdutosFirestore(produtos);
+            toast("Produtos padrão enviados ao Firestore!");
+          }
+        } catch (e) {
+          console.error(e);
+        }
       }
     });
 
     // Botões de Promoções
     document.getElementById('btnAddPromo').addEventListener('click', () => {
-      promocoes.unshift(""); 
+      promocoes.unshift("");
       renderPromocoesAdmin();
     });
-    document.getElementById('btnSavePromo').addEventListener('click', savePromocoesToLS);
-    document.getElementById('btnResetPromo').addEventListener('click', () => {
+
+    document.getElementById('btnSavePromo').addEventListener('click', async () => {
+      savePromocoesToLS();
+
+      // também salva no Firestore (junto com config)
+      pagamento.credito = document.getElementById('credito').value;
+      pagamento.whatsapp = document.getElementById('whatsapp').value;
+
+      try {
+        if (!window.salvarConfigFirestore) throw new Error('salvarConfigFirestore indisponível');
+        await window.salvarConfigFirestore(pagamento, promocoes);
+        toast("Promoções salvas no Firestore!");
+      } catch (e) {
+        console.error(e);
+        alert("Falha ao salvar promoções no Firestore.");
+      }
+    });
+
+    document.getElementById('btnResetPromo').addEventListener('click', async () => {
       if(confirm('Resetar promoções?')) {
         promocoes = defaultPromocoes.slice();
         renderPromocoesAdmin();
         savePromocoesToLS();
+
+        pagamento.credito = document.getElementById('credito').value;
+        pagamento.whatsapp = document.getElementById('whatsapp').value;
+
+        try {
+          if (window.salvarConfigFirestore) {
+            await window.salvarConfigFirestore(pagamento, promocoes);
+            toast("Promoções padrão enviadas ao Firestore!");
+          }
+        } catch (e) {
+          console.error(e);
+        }
       }
     });
 
     // Botão Salvar Configurações (Pagamento/Whats)
-    document.getElementById('btnSavePay').addEventListener('click', () => {
-        pagamento.credito = document.getElementById('credito').value;
-        pagamento.whatsapp = document.getElementById('whatsapp').value;
-        savePagamentoToLS();
+    document.getElementById('btnSavePay').addEventListener('click', async () => {
+      pagamento.credito = document.getElementById('credito').value;
+      pagamento.whatsapp = document.getElementById('whatsapp').value;
+
+      savePagamentoToLS();
+
+      try {
+        if (!window.salvarConfigFirestore) throw new Error('salvarConfigFirestore indisponível');
+        await window.salvarConfigFirestore(pagamento, promocoes);
+        toast("Configurações salvas no Firestore!");
+      } catch (e) {
+        console.error(e);
+        alert("Falha ao salvar configurações no Firestore.");
+      }
     });
 
     // Backup / Exportar
@@ -1130,17 +1280,26 @@
       const f = e.target.files?.[0];
       if(!f) return;
       const r = new FileReader();
-      r.onload = (evt) => {
+      r.onload = async (evt) => {
         try {
           const d = JSON.parse(evt.target.result);
           if(d.produtos) produtos = d.produtos;
           if(d.pagamento) pagamento = d.pagamento;
           if(d.promocoes) promocoes = d.promocoes;
-          
+
           saveProdutosToLS();
           savePagamentoToLS();
           savePromocoesToLS();
-          
+
+          // também envia ao Firestore
+          try {
+            if (window.salvarProdutosFirestore) await window.salvarProdutosFirestore(produtos);
+            if (window.salvarConfigFirestore) await window.salvarConfigFirestore(pagamento, promocoes);
+            toast("Backup aplicado e enviado ao Firestore!");
+          } catch (e) {
+            console.error(e);
+          }
+
           window.location.reload();
         } catch(err){
           alert('Arquivo inválido');
@@ -1150,17 +1309,20 @@
     });
 
     // FUNÇÃO GLOBAL DE CARREGAMENTO (Chamada após login)
-    window.carregarTudo = function() {
-        loadState();
-        renderProdutosAdmin();
-        renderPromocoesAdmin();
-        
-        // Preenche inputs de config
-        if(pagamento.credito) document.getElementById('credito').value = pagamento.credito;
-        if(pagamento.whatsapp) document.getElementById('whatsapp').value = pagamento.whatsapp;
+    window.carregarTudo = async function() {
+      // 1) carrega local (fallback)
+      loadState();
+      renderProdutosAdmin();
+      renderPromocoesAdmin();
 
-        // Tenta carregar pedidos automaticamente ao entrar
-        carregarPedidosNaTela();
+      if(pagamento.credito) document.getElementById('credito').value = pagamento.credito;
+      if(pagamento.whatsapp) document.getElementById('whatsapp').value = pagamento.whatsapp;
+
+      // 2) tenta carregar do Firestore por cima (para refletir o "verdadeiro")
+      await carregarDadosDoFirestoreParaTela();
+
+      // 3) pedidos
+      carregarPedidosNaTela();
     };
   </script>
 </body>
