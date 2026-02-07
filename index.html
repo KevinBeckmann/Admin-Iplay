@@ -21,6 +21,7 @@
             getFirestore,
             collection,
             getDocs,
+            getDoc,               // ✅ ADICIONADO (para ler docs config/pagamento e config/promocoes)
             updateDoc,
             deleteDoc,
             doc,
@@ -53,8 +54,6 @@
         // - config/promocoes (doc) { items: [...], updatedAt }
 
         window.salvarProdutosFirestore = async function(produtos) {
-            // "Upsert" por ID (não apaga o que não existe; apenas atualiza/cria)
-            // Para "substituir tudo", seria necessário deletar os docs que não estão mais na lista.
             const batch = writeBatch(db);
 
             (produtos || []).forEach((p) => {
@@ -81,7 +80,6 @@
         window.carregarProdutosFirestore = async function() {
             const snap = await getDocs(collection(db, "produtos"));
             const lista = snap.docs.map(d => ({ idDoc: d.id, ...d.data() }));
-            // Ordena por id numérico se existir
             lista.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
             return lista;
         };
@@ -104,10 +102,25 @@
             return true;
         };
 
-        window.carregarConfigFirestore = async function() {
-            const pagamentoSnap = await getDocs(collection(db, "config")); // fallback simples
-            // (A gente vai buscar os docs diretamente com doc+getDoc no código abaixo (fora do module) por compat)
-            return pagamentoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // ✅ NOVO: carregar pagamento do Firestore (config/pagamento)
+        window.carregarPagamentoFirestore = async function() {
+            const pagamentoRef = doc(db, "config", "pagamento");
+            const snap = await getDoc(pagamentoRef);
+            if (!snap.exists()) return { credito: "", whatsapp: "" };
+            const data = snap.data() || {};
+            return {
+                credito: String(data.credito || ""),
+                whatsapp: String(data.whatsapp || "")
+            };
+        };
+
+        // ✅ NOVO: carregar promoções do Firestore (config/promocoes)
+        window.carregarPromocoesFirestore = async function() {
+            const promocoesRef = doc(db, "config", "promocoes");
+            const snap = await getDoc(promocoesRef);
+            if (!snap.exists()) return [];
+            const data = snap.data() || {};
+            return Array.isArray(data.items) ? data.items : [];
         };
 
         // --- SISTEMA DE LOGIN SEGURO ---
@@ -116,7 +129,7 @@
                 await signInWithEmailAndPassword(auth, email, senha);
             } catch (error) {
                 console.error("Erro no login:", error);
-                throw error; // Joga o erro para ser tratado no botão
+                throw error;
             }
         };
 
@@ -129,22 +142,19 @@
             }
         };
 
-        // Monitora o estado da autenticação (Logado ou Não)
+        // Monitora o estado da autenticação
         onAuthStateChanged(auth, (user) => {
             const loginScreen = document.getElementById('loginScreen');
             const mainContent = document.getElementById('mainContent');
 
             if (user) {
-                // USUÁRIO LOGADO: Esconde login, mostra painel
                 if(loginScreen) loginScreen.style.display = 'none';
                 if(mainContent) mainContent.style.display = 'block';
 
-                // Carrega os dados iniciais se a função existir
                 if(window.carregarTudo) window.carregarTudo();
 
                 console.log("Admin logado:", user.email);
             } else {
-                // USUÁRIO DESLOGADO: Mostra login, esconde painel
                 if(loginScreen) loginScreen.style.display = 'flex';
                 if(mainContent) mainContent.style.display = 'none';
             }
@@ -152,13 +162,11 @@
 
         // --- FUNÇÕES DE PEDIDOS (BANCO DE DADOS) ---
 
-        // 1. Carregar Pedidos
         window.carregarPedidosFirebase = async function() {
             try {
                 const snapshot = await getDocs(collection(db, "pedidos"));
                 const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // Ordenação manual no Javascript (do mais novo para o mais antigo)
                 return lista.sort((a,b) => {
                     const ta = a?.timestamp?.seconds || 0;
                     const tb = b?.timestamp?.seconds || 0;
@@ -171,7 +179,6 @@
             }
         };
 
-        // 2. Atualizar Status (Finalizar Pedido)
         window.atualizarStatusFirebase = async function(id, novoStatus) {
             try {
                 await updateDoc(doc(db, "pedidos", id), { status: novoStatus });
@@ -182,7 +189,6 @@
             }
         };
 
-        // 3. Excluir Pedido
         window.excluirPedidoFirebase = async function(id) {
             try {
                 await deleteDoc(doc(db, "pedidos", id));
@@ -241,7 +247,7 @@
         .login-box button { width: 100%; }
 
         /* --- LAYOUT PRINCIPAL --- */
-        #mainContent { display: none; } /* Oculto até logar */
+        #mainContent { display: none; }
 
         header {
             position: sticky; top: 0; z-index: 100;
@@ -346,10 +352,8 @@
             background: #fff;
         }
 
-        /* FIX: NÃO DEIXAR CADA CARD "STICKY" (isso causava sobreposição) */
         .aside .card { position: static; }
 
-        /* Se quiser a coluna direita "fixa" no desktop, sticky no ASIDE inteiro (não nos cards) */
         @media (min-width: 901px) {
             .aside {
                 position: sticky;
@@ -361,7 +365,6 @@
         .small { font-size: 0.8rem; color: #888; margin-top: 5px; line-height: 1.4; }
         .footer-note { text-align: center; color: #555; font-size: 0.8rem; padding: 20px 0 40px; }
 
-        /* --- RESPONSIVIDADE MOBILE --- */
         @media (max-width: 900px) {
             .container { grid-template-columns: 1fr; padding: 0 15px; margin-top: 15px; }
             .product-grid { grid-template-columns: 1fr; }
@@ -447,7 +450,6 @@
           </div>
         </div>
 
-        <!-- LINK DA LOJA (você edita depois) -->
         <a class="btn" id="btnVerLoja" href="COLE_AQUI_O_LINK_DA_SUA_LOJA" target="_blank" rel="noopener">
           <i class="fa-solid fa-up-right-from-square"></i> Ver Loja
         </a>
@@ -466,7 +468,6 @@
       </section>
 
       <aside class="aside">
-        <!-- NOVO: COMPRAS/PEDIDOS (MOSTRA TODAS AS INFORMAÇÕES) -->
         <section class="card">
           <h2><i class="fa-solid fa-receipt"></i> Compras Realizadas</h2>
           <div class="toolbar">
@@ -494,7 +495,6 @@
             <input id="credito" type="url" placeholder="Cole aqui seu link de pagamento...">
             <small style="color:#777; font-size:0.75rem;">Este link único será usado para todos os pedidos.</small>
           </div>
-          <!-- O campo PIX e Débito foram removidos para simplificar -->
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -537,7 +537,6 @@
   </div>
 
   <script>
-    // --- PWA: Service Worker registration compatível com /Admin-Iplay/ ---
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/Admin-Iplay/sw.js')
@@ -553,7 +552,6 @@
       );
     }
 
-    // Se já está rodando como app, nunca mostra o banner
     if (isRunningStandalone()) {
       const el = document.getElementById('installPrompt');
       if (el) el.style.display = 'none';
@@ -588,11 +586,10 @@
   <script>
     // --- 1. AUTENTICAÇÃO REAL (Firebase) ---
     async function loginReal() {
-      const email = document.getElementById('emailInput').value; // Pega o email
-      const pass = document.getElementById('passInput').value;   // Pega a senha
+      const email = document.getElementById('emailInput').value;
+      const pass = document.getElementById('passInput').value;
       const msg = document.getElementById('loginMsg');
 
-      // Feedback visual "Carregando..."
       if(msg) {
           msg.style.display = 'block';
           msg.innerText = "Entrando...";
@@ -619,7 +616,6 @@
       }
     }
 
-    // Suporte para tecla ENTER nos campos de login
     document.getElementById('passInput').addEventListener('keypress', function (e) {
       if (e.key === 'Enter') loginReal();
     });
@@ -642,10 +638,7 @@
       { id: 8, nome: "HomePod Mini", cat: "aparelhos", preco: 799, desc: "Smart Speaker White", img: "https://images.unsplash.com/photo-1596558450255-7c0b7be9d56a?auto=format&fit=crop&w=400&q=80", featured: false }
     ];
 
-    const defaultPagamento = {
-      credito: "",
-      whatsapp: ""
-    };
+    const defaultPagamento = { credito: "", whatsapp: "" };
 
     const defaultPromocoes = [
       "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=80",
@@ -714,7 +707,6 @@
     function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function escapeAttr(s) { return String(s || '').replace(/"/g,'&quot;'); }
 
-    // Compressor de imagem
     function fileToDataUrlCompressed(file, maxSize = 800, quality = 0.8) {
       return new Promise((resolve, reject) => {
         const fr = new FileReader();
@@ -1089,7 +1081,6 @@
       });
     }
 
-    // --- AÇÕES DOS PEDIDOS ---
     window.alternarStatus = async function(id, statusAtual) {
       if(!confirm('Alterar status do pedido?')) return;
       try {
@@ -1128,15 +1119,14 @@
     }
 
     // =============================
-    // NOVO: CARREGAR DO FIRESTORE
+    // ✅ AJUSTE: CARREGAR DO FIRESTORE (produtos + promoções + pagamento)
     // =============================
     async function carregarDadosDoFirestoreParaTela() {
-      // Produtos
+      // 1) Produtos
       try {
         if (window.carregarProdutosFirestore) {
           const lista = await window.carregarProdutosFirestore();
           if (Array.isArray(lista) && lista.length) {
-            // remove campos extras
             produtos = lista.map(p => ({
               id: Number(p.id) || 0,
               nome: p.nome || '',
@@ -1153,22 +1143,42 @@
         console.warn('Não foi possível carregar produtos do Firestore, usando localStorage.', e);
       }
 
-      // Config (pagamento/promocoes)
-      // Como estamos no script normal (não module), vamos depender das variáveis que já existem.
-      // Para manter simples, a tela continua usando os dados atuais e você salva no Firestore ao clicar.
+      // 2) Promoções
+      try {
+        if (window.carregarPromocoesFirestore) {
+          const items = await window.carregarPromocoesFirestore();
+          if (Array.isArray(items)) {
+            promocoes = items.map(s => String(s || '').trim()).filter(Boolean);
+            renderPromocoesAdmin();
+          }
+        }
+      } catch (e) {
+        console.warn('Não foi possível carregar promoções do Firestore, usando localStorage.', e);
+      }
+
+      // 3) Pagamento (credito + whatsapp)
+      try {
+        if (window.carregarPagamentoFirestore) {
+          const pay = await window.carregarPagamentoFirestore();
+          pagamento = { ...defaultPagamento, ...(pay || {}) };
+
+          document.getElementById('credito').value = pagamento.credito || '';
+          document.getElementById('whatsapp').value = pagamento.whatsapp || '';
+        }
+      } catch (e) {
+        console.warn('Não foi possível carregar pagamento do Firestore, usando localStorage.', e);
+      }
     }
 
     // --- INICIALIZAÇÃO E EVENTOS ---
     document.getElementById('btnLoadPedidos').addEventListener('click', carregarPedidosNaTela);
 
-    // Botões de Produtos
     document.getElementById('btnAdd').addEventListener('click', () => {
       produtos.unshift({ id: newId(), nome: '', cat: 'aparelhos', preco: 0, desc: '', img: '', featured: false });
       renderProdutosAdmin();
       window.scrollTo(0, 300);
     });
 
-    // AGORA: salva no localStorage + Firestore
     document.getElementById('btnSave').addEventListener('click', async () => {
       saveProdutosToLS();
 
@@ -1199,7 +1209,6 @@
       }
     });
 
-    // Botões de Promoções
     document.getElementById('btnAddPromo').addEventListener('click', () => {
       promocoes.unshift("");
       renderPromocoesAdmin();
@@ -1208,7 +1217,6 @@
     document.getElementById('btnSavePromo').addEventListener('click', async () => {
       savePromocoesToLS();
 
-      // também salva no Firestore (junto com config)
       pagamento.credito = document.getElementById('credito').value;
       pagamento.whatsapp = document.getElementById('whatsapp').value;
 
@@ -1242,7 +1250,6 @@
       }
     });
 
-    // Botão Salvar Configurações (Pagamento/Whats)
     document.getElementById('btnSavePay').addEventListener('click', async () => {
       pagamento.credito = document.getElementById('credito').value;
       pagamento.whatsapp = document.getElementById('whatsapp').value;
@@ -1259,14 +1266,8 @@
       }
     });
 
-    // Backup / Exportar
     document.getElementById('btnExport').addEventListener('click', () => {
-      const data = {
-        produtos,
-        pagamento,
-        promocoes,
-        date: new Date().toISOString()
-      };
+      const data = { produtos, pagamento, promocoes, date: new Date().toISOString() };
       const blob = new Blob([JSON.stringify(data, null, 2)], {type : 'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1275,7 +1276,6 @@
       a.click();
     });
 
-    // Importar Backup
     document.getElementById('fileImport').addEventListener('change', (e) => {
       const f = e.target.files?.[0];
       if(!f) return;
@@ -1291,7 +1291,6 @@
           savePagamentoToLS();
           savePromocoesToLS();
 
-          // também envia ao Firestore
           try {
             if (window.salvarProdutosFirestore) await window.salvarProdutosFirestore(produtos);
             if (window.salvarConfigFirestore) await window.salvarConfigFirestore(pagamento, promocoes);
@@ -1308,7 +1307,7 @@
       r.readAsText(f);
     });
 
-    // FUNÇÃO GLOBAL DE CARREGAMENTO (Chamada após login)
+    // ✅ FUNÇÃO GLOBAL DE CARREGAMENTO
     window.carregarTudo = async function() {
       // 1) carrega local (fallback)
       loadState();
@@ -1318,12 +1317,17 @@
       if(pagamento.credito) document.getElementById('credito').value = pagamento.credito;
       if(pagamento.whatsapp) document.getElementById('whatsapp').value = pagamento.whatsapp;
 
-      // 2) tenta carregar do Firestore por cima (para refletir o "verdadeiro")
+      // 2) carrega do Firestore por cima (o que estiver lá “manda”)
       await carregarDadosDoFirestoreParaTela();
 
       // 3) pedidos
       carregarPedidosNaTela();
     };
+
+    // ✅ Render inicial (antes de logar não aparece, mas deixa pronto)
+    loadState();
+    renderProdutosAdmin();
+    renderPromocoesAdmin();
   </script>
 </body>
 </html>
