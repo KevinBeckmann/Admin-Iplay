@@ -1,442 +1,402 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-    <title>iPlay Store - Painel do Administrador</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>iPlay Store - Painel do Administrador</title>
 
-    <!-- PWA -->
-    <link rel="manifest" href="./manifest.json">
-    <link rel="apple-touch-icon" href="./apple-touch-icon.png">
-    <meta name="theme-color" content="#6eea70">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="iPlay Admin">
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <meta name="theme-color" content="#6eea70">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="iPlay Admin">
 
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
-    <!-- Firebase SDK (Com Autenticação e Firestore) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import {
-            getFirestore,
-            collection,
-            getDocs,
-            getDoc,               // ✅ ADICIONADO (para ler docs config/pagamento e config/promocoes)
-            updateDoc,
-            deleteDoc,
-            doc,
-            setDoc,
-            writeBatch,
-            serverTimestamp
-        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  <!-- Firebase SDK (Com Autenticação e Firestore) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      getDocs,
+      getDoc,
+      updateDoc,
+      deleteDoc,
+      doc,
+      setDoc,
+      writeBatch,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDZPIYOFtfmYEeeHGOCqzHsV1a206n0-cQ",
-            authDomain: "iplay-65220.firebaseapp.com",
-            projectId: "iplay-65220",
-            storageBucket: "iplay-65220.firebasestorage.app",
-            messagingSenderId: "264955612573",
-            appId: "1:264955612573:web:f5a8b2c548962f6b7d7374",
-            measurementId: "G-7MC7673WPH"
-        };
+    const firebaseConfig = {
+      apiKey: "AIzaSyDZPIYOFtfmYEeeHGOCqzHsV1a206n0-cQ",
+      authDomain: "iplay-65220.firebaseapp.com",
+      projectId: "iplay-65220",
+      storageBucket: "iplay-65220.firebasestorage.app",
+      messagingSenderId: "264955612573",
+      appId: "1:264955612573:web:f5a8b2c548962f6b7d7374",
+      measurementId: "G-7MC7673WPH"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
 
-        // =============================
-        // FIRESTORE: PRODUTOS + CONFIG
-        // =============================
-        // Estrutura:
-        // - produtos (collection) -> docs com ID = String(produto.id)
-        // - config/pagamento (doc) { credito, whatsapp, updatedAt }
-        // - config/promocoes (doc) { items: [...], updatedAt }
+    // =============================
+    // FIRESTORE: PRODUTOS + CONFIG
+    // =============================
 
-        window.salvarProdutosFirestore = async function(produtos) {
-            const batch = writeBatch(db);
+    window.salvarProdutosFirestore = async function(produtos) {
+      const batch = writeBatch(db);
 
-            (produtos || []).forEach((p) => {
-                const id = String(p.id ?? '');
-                if (!id) return;
-                const ref = doc(db, "produtos", id);
+      (produtos || []).forEach((p) => {
+        const id = String(p.id ?? '');
+        if (!id) return;
+        const ref = doc(db, "produtos", id);
 
-                batch.set(ref, {
-                    id: Number(p.id) || 0,
-                    nome: p.nome || "",
-                    cat: p.cat || "aparelhos",
-                    preco: Number(p.preco) || 0,
-                    desc: p.desc || "",
-                    img: p.img || "",
-                    featured: !!p.featured,
-                    updatedAt: serverTimestamp()
-                }, { merge: true });
-            });
+        batch.set(ref, {
+          id: Number(p.id) || 0,
+          nome: p.nome || "",
+          cat: p.cat || "aparelhos",
+          preco: Number(p.preco) || 0,
+          desc: p.desc || "",
+          img: p.img || "",
+          featured: !!p.featured,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      });
 
-            await batch.commit();
-            return true;
-        };
+      await batch.commit();
+      return true;
+    };
 
-        window.carregarProdutosFirestore = async function() {
-            const snap = await getDocs(collection(db, "produtos"));
-            const lista = snap.docs.map(d => ({ idDoc: d.id, ...d.data() }));
-            lista.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-            return lista;
-        };
+    // ✅ NOVO: excluir 1 produto direto no Firestore
+    window.excluirProdutoFirestore = async function(id) {
+      const pid = String(id ?? '').trim();
+      if (!pid) throw new Error("ID inválido");
+      await deleteDoc(doc(db, "produtos", pid));
+      return true;
+    };
 
-        window.salvarConfigFirestore = async function(pagamento, promocoes) {
-            const pagamentoRef = doc(db, "config", "pagamento");
-            const promocoesRef = doc(db, "config", "promocoes");
+    window.carregarProdutosFirestore = async function() {
+      const snap = await getDocs(collection(db, "produtos"));
+      const lista = snap.docs.map(d => ({ idDoc: d.id, ...d.data() }));
+      lista.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+      return lista;
+    };
 
-            await setDoc(pagamentoRef, {
-                credito: (pagamento?.credito || "").trim(),
-                whatsapp: (pagamento?.whatsapp || "").trim(),
-                updatedAt: serverTimestamp()
-            }, { merge: true });
+    window.salvarConfigFirestore = async function(pagamento, promocoes) {
+      const pagamentoRef = doc(db, "config", "pagamento");
+      const promocoesRef = doc(db, "config", "promocoes");
 
-            await setDoc(promocoesRef, {
-                items: Array.isArray(promocoes) ? promocoes.map(s => String(s || '').trim()).filter(Boolean) : [],
-                updatedAt: serverTimestamp()
-            }, { merge: true });
+      await setDoc(pagamentoRef, {
+        credito: (pagamento?.credito || "").trim(),
+        whatsapp: (pagamento?.whatsapp || "").trim(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
 
-            return true;
-        };
+      await setDoc(promocoesRef, {
+        items: Array.isArray(promocoes) ? promocoes.map(s => String(s || '').trim()).filter(Boolean) : [],
+        updatedAt: serverTimestamp()
+      }, { merge: true });
 
-        // ✅ NOVO: carregar pagamento do Firestore (config/pagamento)
-        window.carregarPagamentoFirestore = async function() {
-            const pagamentoRef = doc(db, "config", "pagamento");
-            const snap = await getDoc(pagamentoRef);
-            if (!snap.exists()) return { credito: "", whatsapp: "" };
-            const data = snap.data() || {};
-            return {
-                credito: String(data.credito || ""),
-                whatsapp: String(data.whatsapp || "")
-            };
-        };
+      return true;
+    };
 
-        // ✅ NOVO: carregar promoções do Firestore (config/promocoes)
-        window.carregarPromocoesFirestore = async function() {
-            const promocoesRef = doc(db, "config", "promocoes");
-            const snap = await getDoc(promocoesRef);
-            if (!snap.exists()) return [];
-            const data = snap.data() || {};
-            return Array.isArray(data.items) ? data.items : [];
-        };
+    window.carregarPagamentoFirestore = async function() {
+      const pagamentoRef = doc(db, "config", "pagamento");
+      const snap = await getDoc(pagamentoRef);
+      if (!snap.exists()) return { credito: "", whatsapp: "" };
+      const data = snap.data() || {};
+      return { credito: String(data.credito || ""), whatsapp: String(data.whatsapp || "") };
+    };
 
-        // --- SISTEMA DE LOGIN SEGURO ---
-        window.fazerLoginFirebase = async function(email, senha) {
-            try {
-                await signInWithEmailAndPassword(auth, email, senha);
-            } catch (error) {
-                console.error("Erro no login:", error);
-                throw error;
-            }
-        };
+    window.carregarPromocoesFirestore = async function() {
+      const promocoesRef = doc(db, "config", "promocoes");
+      const snap = await getDoc(promocoesRef);
+      if (!snap.exists()) return [];
+      const data = snap.data() || {};
+      return Array.isArray(data.items) ? data.items : [];
+    };
 
-        window.fazerLogout = async function() {
-            try {
-                await signOut(auth);
-                window.location.reload();
-            } catch (error) {
-                console.error("Erro ao sair:", error);
-            }
-        };
+    // --- LOGIN ---
+    window.fazerLoginFirebase = async function(email, senha) {
+      await signInWithEmailAndPassword(auth, email, senha);
+    };
 
-        // Monitora o estado da autenticação
-        onAuthStateChanged(auth, (user) => {
-            const loginScreen = document.getElementById('loginScreen');
-            const mainContent = document.getElementById('mainContent');
+    window.fazerLogout = async function() {
+      await signOut(auth);
+      window.location.reload();
+    };
 
-            if (user) {
-                if(loginScreen) loginScreen.style.display = 'none';
-                if(mainContent) mainContent.style.display = 'block';
+    onAuthStateChanged(auth, (user) => {
+      const loginScreen = document.getElementById('loginScreen');
+      const mainContent = document.getElementById('mainContent');
 
-                if(window.carregarTudo) window.carregarTudo();
+      if (user) {
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (mainContent) mainContent.style.display = 'block';
+        if (window.carregarTudo) window.carregarTudo();
+        console.log("Admin logado:", user.email);
+      } else {
+        if (loginScreen) loginScreen.style.display = 'flex';
+        if (mainContent) mainContent.style.display = 'none';
+      }
+    });
 
-                console.log("Admin logado:", user.email);
-            } else {
-                if(loginScreen) loginScreen.style.display = 'flex';
-                if(mainContent) mainContent.style.display = 'none';
-            }
-        });
+    // --- PEDIDOS ---
+    window.carregarPedidosFirebase = async function() {
+      const snapshot = await getDocs(collection(db, "pedidos"));
+      const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return lista.sort((a,b) => {
+        const ta = a?.timestamp?.seconds || 0;
+        const tb = b?.timestamp?.seconds || 0;
+        return tb - ta;
+      });
+    };
 
-        // --- FUNÇÕES DE PEDIDOS (BANCO DE DADOS) ---
+    window.atualizarStatusFirebase = async function(id, novoStatus) {
+      await updateDoc(doc(db, "pedidos", id), { status: novoStatus });
+    };
 
-        window.carregarPedidosFirebase = async function() {
-            try {
-                const snapshot = await getDocs(collection(db, "pedidos"));
-                const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    window.excluirPedidoFirebase = async function(id) {
+      await deleteDoc(doc(db, "pedidos", id));
+    };
+  </script>
 
-                return lista.sort((a,b) => {
-                    const ta = a?.timestamp?.seconds || 0;
-                    const tb = b?.timestamp?.seconds || 0;
-                    return tb - ta;
-                });
-            } catch (e) {
-                console.error("Erro CRÍTICO ao buscar pedidos:", e);
-                alert("Erro ao buscar pedidos no banco de dados. Verifique o console.");
-                return [];
-            }
-        };
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
-        window.atualizarStatusFirebase = async function(id, novoStatus) {
-            try {
-                await updateDoc(doc(db, "pedidos", id), { status: novoStatus });
-            } catch (e) {
-                console.error("Erro ao atualizar status:", e);
-                alert("Erro ao atualizar. Você está logado?");
-                throw e;
-            }
-        };
+    :root {
+      --bg-body: #0b0c10;
+      --bg-card: #1a1c20;
+      --bg-elev: #1e2126;
+      --accent: #6eea70;
+      --text: #ffffff;
+      --text-dim: #a1a1a1;
+      --border: rgba(255,255,255,0.08);
+    }
 
-        window.excluirPedidoFirebase = async function(id) {
-            try {
-                await deleteDoc(doc(db, "pedidos", id));
-            } catch (e) {
-                console.error("Erro ao excluir:", e);
-                alert("Erro ao excluir. Verifique se você tem permissão.");
-                throw e;
-            }
-        };
-    </script>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #08090b;
+      color: var(--text);
+      min-height: 100vh;
+      background-image:
+        radial-gradient(circle at 50% 0%, rgba(20,24,30,0.9) 0%, rgba(8,9,11,1) 80%),
+        url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-27-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm-24-4c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM0 10c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm77 3c.552 0 1-.448 1-1s-.448-1-1-1-1 .448-1 1 .448 1 1 1zM50 0c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zm35 77c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM98 40c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM14 74c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zM62 8c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM85 62c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM47 54c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM28 89c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM78 4c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM38 36c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM52 18c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM25 64c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM90 43c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM16 56c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM37 46c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM7 24c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM21 54c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM32 40c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM41 84c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM58 78c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM75 14c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM66 66c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM3 50c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM19 80c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM33 2c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM87 34c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM13 26c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6z' fill='%239C92AC' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+      background-size: cover, 400px 400px;
+    }
 
-        :root {
-            --bg-body: #0b0c10;
-            --bg-card: #1a1c20;
-            --bg-elev: #1e2126;
-            --accent: #6eea70;
-            --text: #ffffff;
-            --text-dim: #a1a1a1;
-            --border: rgba(255,255,255,0.08);
-        }
+    #loginScreen {
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background: #08090b; z-index: 9999;
+      display: flex; justify-content: center; align-items: center; flex-direction: column;
+      padding: 20px;
+    }
+    .login-box {
+      background: var(--bg-card); padding: 30px; border-radius: 16px; border: 1px solid var(--border);
+      text-align: center; max-width: 400px; width: 100%;
+      box-shadow: 0 0 40px rgba(0,0,0,0.5);
+    }
+    .login-box h2 { margin-bottom: 20px; color: var(--accent); }
+    .login-box input {
+      width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333;
+      background: #0b0c10; color: #fff; margin-bottom: 15px; font-size: 1rem;
+      text-align: center;
+    }
+    .login-box button { width: 100%; }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    #mainContent { display: none; }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background: #08090b;
-            color: var(--text);
-            min-height: 100vh;
-            background-image:
-                radial-gradient(circle at 50% 0%, rgba(20,24,30,0.9) 0%, rgba(8,9,11,1) 80%),
-                url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-27-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm-24-4c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM0 10c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm77 3c.552 0 1-.448 1-1s-.448-1-1-1-1 .448-1 1 .448 1 1 1zM50 0c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zm35 77c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM98 40c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM14 74c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zM62 8c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM85 62c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM47 54c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM28 89c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM78 4c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM38 36c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM52 18c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM25 64c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM90 43c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM16 56c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM37 46c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM7 24c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM21 54c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM32 40c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM41 84c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM58 78c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM75 14c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM66 66c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM3 50c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM19 80c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM33 2c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM87 34c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM13 26c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6z' fill='%239C92AC' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
-            background-size: cover, 400px 400px;
-        }
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(8, 9, 11, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .header-container {
+      max-width: 1200px; margin: 0 auto; padding: 12px 20px;
+      display: flex; align-items: center; gap: 16px; justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 250px; }
+    .logo { width: 42px; height: 42px; flex-shrink: 0; }
+    .title { font-weight: 700; font-size: 1.1rem; line-height: 1.2; }
+    .hint { color: var(--text-dim); font-size: 0.8rem; margin-top: 2px; }
 
-        /* --- LOGIN SCREEN --- */
-        #loginScreen {
-            position: fixed; top:0; left:0; width:100%; height:100%;
-            background: #08090b; z-index: 9999;
-            display: flex; justify-content: center; align-items: center; flex-direction: column;
-            padding: 20px;
-        }
-        .login-box {
-            background: var(--bg-card); padding: 30px; border-radius: 16px; border: 1px solid var(--border);
-            text-align: center; max-width: 400px; width: 100%;
-            box-shadow: 0 0 40px rgba(0,0,0,0.5);
-        }
-        .login-box h2 { margin-bottom: 20px; color: var(--accent); }
-        .login-box input {
-            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333;
-            background: #0b0c10; color: #fff; margin-bottom: 15px; font-size: 1rem;
-            text-align: center;
-        }
-        .login-box button { width: 100%; }
+    .container {
+      max-width: 1200px; margin: 20px auto; padding: 0 20px; display: grid; gap: 20px;
+      grid-template-columns: 1fr 350px;
+      align-items: start;
+    }
 
-        /* --- LAYOUT PRINCIPAL --- */
-        #mainContent { display: none; }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.3);
+    }
+    .card h2 {
+      font-size: 1.05rem; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+      color: #fff; font-weight: 700;
+    }
 
-        header {
-            position: sticky; top: 0; z-index: 100;
-            background: rgba(8, 9, 11, 0.95);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .header-container {
-            max-width: 1200px; margin: 0 auto; padding: 12px 20px;
-            display: flex; align-items: center; gap: 16px; justify-content: space-between;
-            flex-wrap: wrap;
-        }
-        .brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 250px; }
-        .logo { width: 42px; height: 42px; flex-shrink: 0; }
-        .title { font-weight: 700; font-size: 1.1rem; line-height: 1.2; }
-        .hint { color: var(--text-dim); font-size: 0.8rem; margin-top: 2px; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    button, .btn {
+      background: var(--accent); color: #000; border: none; border-radius: 8px;
+      padding: 12px 16px; font-weight: 700; cursor:pointer; font-size: 0.9rem;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      text-decoration: none; transition: 0.2s;
+    }
+    button:active, .btn:active { transform: scale(0.96); }
+    button.secondary { background: #2a2f35; color: #fff; border: 1px solid var(--border); }
+    button.danger { background: #ff5555; color: #000; }
 
-        .container {
-            max-width: 1200px; margin: 20px auto; padding: 0 20px; display: grid; gap: 20px;
-            grid-template-columns: 1fr 350px;
-            align-items: start;
-        }
+    .field { display: grid; gap: 6px; margin-bottom: 12px; }
+    .field label { color: #ccc; font-size: 0.85rem; }
+    .field input, .field select, .field textarea {
+      background: #0b0c10; border: 1px solid #333; color: #fff; border-radius: 8px;
+      padding: 12px; font-size: 1rem; width: 100%;
+    }
+    .two-cols { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
 
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 18px;
-            box-shadow: 0 10px 24px rgba(0,0,0,0.3);
-        }
-        .card h2 {
-            font-size: 1.05rem; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
-            color: #fff; font-weight: 700;
-        }
+    .product-item {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+      display: grid; gap: 12px;
+    }
+    .product-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    }
+    .head-title { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
+    .head-actions { display: flex; gap: 6px; }
 
-        .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-        button, .btn {
-            background: var(--accent); color: #000; border: none; border-radius: 8px;
-            padding: 12px 16px; font-weight: 700; cursor:pointer; font-size: 0.9rem;
-            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-            text-decoration: none; transition: 0.2s;
-        }
-        button:active, .btn:active { transform: scale(0.96); }
-        button.secondary { background: #2a2f35; color: #fff; border: 1px solid var(--border); }
-        button.danger { background: #ff5555; color: #000; }
+    .badge {
+      background: rgba(110,234,112,0.15);
+      border: 1px solid rgba(110,234,112,0.3);
+      color: var(--accent); font-weight: 700; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem;
+    }
 
-        .field { display: grid; gap: 6px; margin-bottom: 12px; }
-        .field label { color: #ccc; font-size: 0.85rem; }
-        .field input, .field select, .field textarea {
-            background: #0b0c10; border: 1px solid #333; color: #fff; border-radius: 8px;
-            padding: 12px; font-size: 1rem; width: 100%;
-        }
-        .two-cols { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+    .product-grid { display: grid; gap: 15px; grid-template-columns: 1.5fr 1fr; align-items: start; }
+    .img-preview {
+      width: 100%; max-width: 200px; height: auto;
+      border-radius: 8px; border: 1px solid #333; background: #fff; padding: 4px;
+      margin-top: 10px;
+    }
 
-        /* PRODUTO ITEM */
-        .product-item {
-            background: var(--bg-elev);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 14px;
-            margin-bottom: 14px;
-            display: grid; gap: 12px;
-        }
-        .product-head {
-            display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-        }
-        .head-title { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
-        .head-actions { display: flex; gap: 6px; }
+    .upload-row { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .upload-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
+    .upload-actions .btn { padding: 8px 12px; font-size: 0.8rem; }
 
-        .badge {
-            background: rgba(110,234,112,0.15);
-            border: 1px solid rgba(110,234,112,0.3);
-            color: var(--accent); font-weight: 700; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem;
-        }
+    .promo-item {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .promo-preview {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid #333;
+      padding: 4px;
+      background: #fff;
+    }
 
-        .product-grid { display: grid; gap: 15px; grid-template-columns: 1.5fr 1fr; align-items: start; }
-        .img-preview {
-            width: 100%; max-width: 200px; height: auto;
-            border-radius: 8px; border: 1px solid #333; background: #fff; padding: 4px;
-            margin-top: 10px;
-        }
+    .aside .card { position: static; }
+    @media (min-width: 901px) {
+      .aside {
+        position: sticky;
+        top: 94px;
+        align-self: start;
+      }
+    }
 
-        .upload-row { display: grid; grid-template-columns: 1fr; gap: 8px; }
-        .upload-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
-        .upload-actions .btn { padding: 8px 12px; font-size: 0.8rem; }
+    .small { font-size: 0.8rem; color: #888; margin-top: 5px; line-height: 1.4; }
+    .footer-note { text-align: center; color: #555; font-size: 0.8rem; padding: 20px 0 40px; }
 
-        /* PROMOÇÕES */
-        .promo-item {
-            background: var(--bg-elev);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 12px;
-            display: grid;
-            gap: 10px;
-        }
-        .promo-preview {
-            max-width: 100%;
-            border-radius: 8px;
-            border: 1px solid #333;
-            padding: 4px;
-            background: #fff;
-        }
+    @media (max-width: 900px) {
+      .container { grid-template-columns: 1fr; padding: 0 15px; margin-top: 15px; }
+      .product-grid { grid-template-columns: 1fr; }
 
-        .aside .card { position: static; }
+      .header-container { padding: 10px 15px; flex-direction: column; align-items: stretch; gap: 12px; }
+      .header-container .btn { width: 100%; }
+      .title { font-size: 1rem; }
+      .hint { display: none; }
 
-        @media (min-width: 901px) {
-            .aside {
-                position: sticky;
-                top: 94px;
-                align-self: start;
-            }
-        }
+      .toolbar button, .toolbar label.btn { flex: 1; padding: 14px; text-align: center; }
+      .head-actions button { padding: 8px 12px; }
 
-        .small { font-size: 0.8rem; color: #888; margin-top: 5px; line-height: 1.4; }
-        .footer-note { text-align: center; color: #555; font-size: 0.8rem; padding: 20px 0 40px; }
+      .two-cols { grid-template-columns: 1fr; }
+      .upload-actions .btn { width: 100%; }
+      .img-preview { max-width: 100%; height: 200px; object-fit: contain; background: #222; }
+    }
 
-        @media (max-width: 900px) {
-            .container { grid-template-columns: 1fr; padding: 0 15px; margin-top: 15px; }
-            .product-grid { grid-template-columns: 1fr; }
+    .pedido-item {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+      display: grid; gap: 12px;
+    }
+    .pedido-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .pedido-info { font-size: 0.9rem; color: var(--text-dim); }
+    .pedido-status {
+      padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;
+      background: #ff5555; color: #000;
+    }
+    .pedido-status.atendido { background: var(--accent); }
 
-            .header-container { padding: 10px 15px; flex-direction: column; align-items: stretch; gap: 12px; }
-            .header-container .btn { width: 100%; }
-            .title { font-size: 1rem; }
-            .hint { display: none; }
-
-            .toolbar button, .toolbar label.btn { flex: 1; padding: 14px; text-align: center; }
-            .head-actions button { padding: 8px 12px; }
-
-            .two-cols { grid-template-columns: 1fr; }
-            .upload-actions .btn { width: 100%; }
-            .img-preview { max-width: 100%; height: 200px; object-fit: contain; background: #222; }
-        }
-
-        /* PEDIDOS */
-        .pedido-item {
-            background: var(--bg-elev);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 14px;
-            margin-bottom: 14px;
-            display: grid; gap: 12px;
-        }
-        .pedido-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-        .pedido-info { font-size: 0.9rem; color: var(--text-dim); }
-        .pedido-status {
-            padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;
-            background: #ff5555; color: #000;
-        }
-        .pedido-status.atendido { background: var(--accent); }
-
-        /* Install prompt */
-        #installPrompt {
-            display:none;
-            position:fixed;
-            bottom:20px;
-            left:50%;
-            transform:translateX(-50%);
-            z-index:11000;
-            background:var(--bg-card);
-            border:1px solid var(--border);
-            padding:12px;
-            border-radius:14px;
-            width:min(420px, calc(100% - 24px));
-            box-shadow:0 10px 24px rgba(0,0,0,0.4);
-        }
-        #installPrompt .row {
-            display:flex;
-            gap:10px;
-            justify-content:flex-end;
-            margin-top:10px;
-        }
-        #installPrompt button { padding:10px 12px; }
-    </style>
+    #installPrompt {
+      display:none;
+      position:fixed;
+      bottom:20px;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:11000;
+      background:var(--bg-card);
+      border:1px solid var(--border);
+      padding:12px;
+      border-radius:14px;
+      width:min(420px, calc(100% - 24px));
+      box-shadow:0 10px 24px rgba(0,0,0,0.4);
+    }
+    #installPrompt .row {
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      margin-top:10px;
+    }
+    #installPrompt button { padding:10px 12px; }
+  </style>
 </head>
 
 <body>
 
   <!-- TELA DE LOGIN -->
-     <div id="loginScreen">
-        <div class="login-box">
-            <i class="fa-solid fa-user-shield" style="font-size:40px; color:var(--acc); margin-bottom:15px;"></i>
-            <h2>Acesso Admin Seguro</h2>
-            <input type="email" id="emailInput" placeholder="Seu E-mail" style="margin-bottom:10px;">
-            <input type="password" id="passInput" placeholder="Sua Senha">
-            <button class="btn-primary" onclick="loginReal()">ENTRAR</button>
-            <p id="loginMsg" style="color:#ff4444; margin-top:10px; display:none; font-size:0.9rem;"></p>
-        </div>
+  <div id="loginScreen">
+    <div class="login-box">
+      <i class="fa-solid fa-user-shield" style="font-size:40px; color:var(--acc); margin-bottom:15px;"></i>
+      <h2>Acesso Admin Seguro</h2>
+      <input type="email" id="emailInput" placeholder="Seu E-mail" style="margin-bottom:10px;">
+      <input type="password" id="passInput" placeholder="Sua Senha">
+      <button class="btn-primary" onclick="loginReal()">ENTRAR</button>
+      <p id="loginMsg" style="color:#ff4444; margin-top:10px; display:none; font-size:0.9rem;"></p>
     </div>
+  </div>
 
   <!-- CONTEÚDO DO PAINEL -->
   <div id="mainContent">
@@ -474,7 +434,7 @@
             <button id="btnLoadPedidos"><i class="fa-solid fa-sync"></i> Carregar Compras</button>
           </div>
           <div id="pedidosList"></div>
-          <div class="small" style="text-align:center;">Mostra os documentos da coleção <code>pedidos</code> do Firestore.</div>
+          <div class="small" style="text-align:center;"> <code></code> </div>
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -485,7 +445,7 @@
             <button id="btnResetPromo" class="secondary"><i class="fa-solid fa-rotate-left"></i> Resetar</button>
           </div>
           <div id="promocoesList"></div>
-          <div class="small" style="text-align:center;">(Agora também salva no <b>Firestore</b> em <code>config/promocoes</code>)</div>
+          <div class="small" style="text-align:center;">(<b></b> <code></code>)</div>
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -493,7 +453,7 @@
           <div class="field">
             <label for="credito" style="color:var(--accent);">Link de Pagamento (Mercado Pago)</label>
             <input id="credito" type="url" placeholder="Cole aqui seu link de pagamento...">
-            <small style="color:#777; font-size:0.75rem;">Este link único será usado para todos os pedidos.</small>
+            <small style="color:#777; font-size:0.75rem;"></small>
           </div>
         </section>
 
@@ -506,7 +466,7 @@
           <div class="toolbar" style="margin-top:10px">
             <button id="btnSavePay" style="width:100%"><i class="fa-solid fa-floppy-disk"></i> Salvar Configurações</button>
           </div>
-          <div class="small" style="text-align:center;">(Agora também salva no <b>Firestore</b> em <code>config/pagamento</code>)</div>
+          <div class="small" style="text-align:center;"> <b></b> <code></code> </div>
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -518,7 +478,7 @@
               <input id="fileImport" type="file" accept="application/json" style="display:none;">
             </label>
           </div>
-          <div class="small" style="text-align: center;">Salva produtos, promoções e configs em arquivo JSON.</div>
+          <div class="small" style="text-align: center;"></div>
         </section>
       </aside>
     </main>
@@ -529,7 +489,7 @@
   <!-- Install prompt UI -->
   <div id="installPrompt">
     <div style="color:#fff;font-weight:700">Instalar o app no seu dispositivo?</div>
-    <div class="small">Funciona offline (cache) e abre como aplicativo.</div>
+    <div class="small"></div>
     <div class="row">
       <button id="btnCancelInstall" class="secondary" type="button">Depois</button>
       <button id="btnInstall" type="button">Instalar</button>
@@ -591,28 +551,28 @@
       const msg = document.getElementById('loginMsg');
 
       if(msg) {
-          msg.style.display = 'block';
-          msg.innerText = "Entrando...";
-          msg.style.color = "#ccc";
+        msg.style.display = 'block';
+        msg.innerText = "Entrando...";
+        msg.style.color = "#ccc";
       }
 
       try {
-          if (window.fazerLoginFirebase) {
-              await window.fazerLoginFirebase(email, pass);
-          } else {
-              alert("Erro: Firebase não carregou. Recarregue a página.");
-          }
+        if (window.fazerLoginFirebase) {
+          await window.fazerLoginFirebase(email, pass);
+        } else {
+          alert("Erro: Firebase não carregou. Recarregue a página.");
+        }
       } catch (error) {
-          if(msg) {
-              msg.style.color = "#ff4444";
-              if(error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-                  msg.innerText = "E-mail ou senha incorretos.";
-              } else if (error.code === 'auth/too-many-requests') {
-                  msg.innerText = "Muitas tentativas. Aguarde um pouco.";
-              } else {
-                  msg.innerText = "Erro ao entrar (" + error.code + ")";
-              }
+        if(msg) {
+          msg.style.color = "#ff4444";
+          if(error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+            msg.innerText = "E-mail ou senha incorretos.";
+          } else if (error.code === 'auth/too-many-requests') {
+            msg.innerText = "Muitas tentativas. Aguarde um pouco.";
+          } else {
+            msg.innerText = "Erro ao entrar (" + error.code + ")";
           }
+        }
       }
     }
 
@@ -809,9 +769,32 @@
         wrap.addEventListener('input', onProductFieldChange);
         wrap.addEventListener('change', onProductFieldChange);
 
-        wrap.querySelector('[data-action="del"]').addEventListener('click', () => {
-          if (confirm('Deletar?')) { produtos.splice(idx, 1); renderProdutosAdmin(); }
+        // ✅ AJUSTADO: ao deletar no painel, deleta também no Firestore
+        wrap.querySelector('[data-action="del"]').addEventListener('click', async () => {
+          if (!confirm('Deletar?')) return;
+
+          const backup = produtos[idx];
+          const id = backup?.id;
+
+          // remove da tela (rápido)
+          produtos.splice(idx, 1);
+          renderProdutosAdmin();
+
+          // tenta deletar no Firestore
+          try {
+            if (!window.excluirProdutoFirestore) throw new Error("excluirProdutoFirestore indisponível");
+            await window.excluirProdutoFirestore(id);
+            toast("Produto excluído no Firestore!");
+          } catch (e) {
+            console.error(e);
+            alert("Falha ao excluir no Firestore. Veja o console.");
+
+            // desfaz na tela se falhar
+            produtos.splice(idx, 0, backup);
+            renderProdutosAdmin();
+          }
         });
+
         wrap.querySelector('[data-action="dup"]').addEventListener('click', () => {
           produtos.splice(idx + 1, 0, { ...produtos[idx], id: newId(), nome: (produtos[idx].nome || '') + ' (Cópia)' });
           renderProdutosAdmin();
@@ -1119,7 +1102,7 @@
     }
 
     // =============================
-    // ✅ AJUSTE: CARREGAR DO FIRESTORE (produtos + promoções + pagamento)
+    // CARREGAR DO FIRESTORE (produtos + promoções + pagamento)
     // =============================
     async function carregarDadosDoFirestoreParaTela() {
       // 1) Produtos
@@ -1307,7 +1290,7 @@
       r.readAsText(f);
     });
 
-    // ✅ FUNÇÃO GLOBAL DE CARREGAMENTO
+    // FUNÇÃO GLOBAL DE CARREGAMENTO
     window.carregarTudo = async function() {
       // 1) carrega local (fallback)
       loadState();
@@ -1324,7 +1307,7 @@
       carregarPedidosNaTela();
     };
 
-    // ✅ Render inicial (antes de logar não aparece, mas deixa pronto)
+    // Render inicial
     loadState();
     renderProdutosAdmin();
     renderPromocoesAdmin();
