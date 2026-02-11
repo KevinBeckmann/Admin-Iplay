@@ -310,12 +310,29 @@
       display: grid;
       gap: 10px;
     }
-    promo-preview {
+   /* Substitua o seletor incorreto `promo-preview { ... }` por este bloco */
+.promo-preview {
+  display: block;
+  width: 100%;         /* ocupa a largura do container */
+  height: auto;        /* escala mantendo proporção */
   max-width: 100%;
+  max-height: 240px;   /* evita imagens muito altas que desconfiguram o layout */
+  object-fit: contain; /* mantém a imagem inteira sem cortar (muito útil para DataURLs) */
   border-radius: 8px;
   border: 1px solid #333;
   padding: 4px;
   background: transparent; /* remover background branco */
+}
+
+/* Evita que o item de promoção quebre o layout se a imagem for maior */
+.promo-item {
+  overflow: hidden;
+}
+
+/* Melhora a apresentação do campo URL dentro do card de promoção */
+.promo-item input[type="url"] {
+  width: 100%;
+  overflow-wrap: anywhere; /* faz o input quebrar URLs longas (DataURLs) visualmente */
 }
 
     .aside .card { position: static; }
