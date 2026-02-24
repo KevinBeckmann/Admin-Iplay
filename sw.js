@@ -18,7 +18,7 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('Mensagem recebida em background:', payload);
 
-  const notificationTitle = payload?.notification?.title || 'iPlay Admin';
+  const notificationTitle = payload?.notification?.title || 'Aliencell Admin';
   const notificationOptions = {
     body: payload?.notification?.body || '',
     icon: '/Admin-Iplay/icon-512.png'
